@@ -1,0 +1,62 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: mintk
+  #  annotations:
+  #    eck.k8s.elastic.co/disable-upgrade-predicates: “do_not_restart_healthy_node_if_MaxUnavailable_reached”
+  #    eck.k8s.elastic.co/disable-upgrade-predicates: "if_yellow_only_restart_upgrading_nodes_with_unassigned_replicas"
+spec:
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+
+  secureSettings:
+    - secretName: s3-credentials
+
+  version: 8.7.0
+  nodeSets:
+    - name: default
+      count: 3
+      config:
+        node.roles: ["master", "data", "ingest" , "transform"]
+        # node.remote_cluster_client: false
+      podTemplate:
+        spec:
+          affinity:
+			            podAntiAffinity:
+			              requiredDuringSchedulingIgnoredDuringExecution:
+			                - labelSelector:
+			                    matchLabels:
+			                      elasticsearch.k8s.elastic.co/cluster-name: mintk
+			                  topologyKey: kubernetes.io/hostname
+			          nodeSelector:
+			            topology.kubernetes.io/zone: ap-southeast-1c # should be master node zone
+          containers:
+            - name: elasticsearch
+              resources:
+                limits:
+                  memory: 4Gi
+                  cpu: 1
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms1g -Xmx1g"
+
+          initContainers:
+            - name: install-plugins
+              command:
+                - sh
+                - -c
+                - |
+                  bin/elasticsearch-plugin install --batch repository-s3
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 100Gi
+            storageClassName: gp3

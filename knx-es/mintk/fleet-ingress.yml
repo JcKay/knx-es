@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/issuer: "mintk-issuer"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  name: fleet-ingress
+spec:
+  tls:
+    - hosts:
+        - mintk-fleet.kernellix.net
+      secretName: mintk-fleet-tls
+  rules:
+    - host: mintk-fleet.kernellix.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mintk-fleet-server-agent-http
+                port:
+                  number: 8220
